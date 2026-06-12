@@ -124,8 +124,11 @@ fn main() -> Result<()> {
     };
 
     log::info!("Opening Orbit graph: {}", db_path.display());
-    let conn = Connection::open_with_readonly(&db_path, true)
-        .with_context(|| format!("Failed to open DuckDB: {}", db_path.display()))?;
+    let conn = Connection::open_with_flags(
+        &db_path,
+        duckdb::Config::default().access_mode(duckdb::AccessMode::ReadOnly)?,
+    )
+    .with_context(|| format!("Failed to open DuckDB: {}", db_path.display()))?;
 
     let mut all_findings = Vec::new();
     let min_severity = findings::Severity::from_str(&cli.severity);

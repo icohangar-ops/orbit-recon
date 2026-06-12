@@ -108,7 +108,7 @@ impl Report {
         // Detail sections
         if !dead_code.is_empty() {
             md.push_str("## Dead Code\n\n");
-            for f in dead_code {
+            for f in &dead_code {
                 md.push_str(&format_finding(f));
             }
             md.push('\n');
@@ -116,7 +116,7 @@ impl Report {
 
         if !cycles.is_empty() {
             md.push_str("## Circular Dependencies\n\n");
-            for f in cycles {
+            for f in &cycles {
                 md.push_str(&format_finding(f));
             }
             md.push('\n');
@@ -124,7 +124,7 @@ impl Report {
 
         if !coupling.is_empty() {
             md.push_str("## Module Coupling\n\n");
-            for f in coupling {
+            for f in &coupling {
                 md.push_str(&format_finding(f));
             }
             md.push('\n');
@@ -132,7 +132,7 @@ impl Report {
 
         if !drift.is_empty() {
             md.push_str("## Architectural Drift\n\n");
-            for f in drift {
+            for f in &drift {
                 md.push_str(&format_finding(f));
             }
             md.push('\n');
@@ -220,7 +220,7 @@ fn format_finding(f: &Finding) -> String {
     };
 
     format!(
-        "- {} [`{}`]({}) — {}\n  - {}\n  - _Suggestion_: {}\n",
+        "- {} [`{}`]({}) — {}\n  - _Suggestion_: {}\n",
         severity_label,
         f.location.name,
         location,

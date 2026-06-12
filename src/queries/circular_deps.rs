@@ -233,10 +233,11 @@ fn find_longer_cycles(
                 // Found a cycle back to start
                 let total_refs: i64 = path
                     .windows(2)
-                    .chain(std::iter::once([&path[path.len() - 1], start]))
-                    .filter_map(|pair| {
-                        deps.get(pair[0])
-                            .and_then(|d| d.get(pair[1]))
+                    .map(|pair| (&pair[0], &pair[1]))
+                    .chain(std::iter::once((&path[path.len() - 1], start)))
+                    .filter_map(|(from, to)| {
+                        deps.get(from)
+                            .and_then(|d| d.get(to))
                             .copied()
                     })
                     .sum();
