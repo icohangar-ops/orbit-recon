@@ -114,5 +114,5 @@ orbit-recon --repo . --format json --output report.json --ci
 
 ## Links
 
-- GitHub: https://github.com/Cubiczan/orbit-recon
+- GitHub: https://github.com/icohangar-ops/orbit-recon
 - Codeberg: https://codeberg.org/cubiczan/orbit-recon

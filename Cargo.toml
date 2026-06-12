@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 keywords = ["gitlab", "orbit", "knowledge-graph", "code-health", "static-analysis"]
 categories = ["command-line-utilities", "development-tools"]
-repository = "https://github.com/Cubiczan/orbit-recon"
+repository = "https://github.com/icohangar-ops/orbit-recon"
 
 [dependencies]
 duckdb = { version = "1.1", features = ["bundled"] }

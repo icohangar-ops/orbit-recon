@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Cubiczan/orbit-recon"><img src="https://img.shields.io/badge/GitHub-Cubiczan%2Forbit--recon-181717?logo=github" alt="GitHub"></a>
+  <a href="https://github.com/icohangar-ops/orbit-recon"><img src="https://img.shields.io/badge/GitHub-Cubiczan%2Forbit--recon-181717?logo=github" alt="GitHub"></a>
   <a href="https://codeberg.org/cubiczan/orbit-recon"><img src="https://img.shields.io/badge/Codeberg-cubiczan%2Forbit--recon-2185d0?logo=codeberg" alt="Codeberg"></a>
   <img src="https://img.shields.io/badge/Rust-1.80%2B-orange?logo=rust" alt="Rust">
   <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
@@ -90,7 +90,7 @@ Orbit Recon is a showcase submission demonstrating how the Orbit Knowledge Graph
 cargo install orbit-recon
 
 # Or build from source
-git clone https://github.com/Cubiczan/orbit-recon.git
+git clone https://github.com/icohangar-ops/orbit-recon.git
 cd orbit-recon
 cargo build --release
 # Binary at target/release/orbit-recon
@@ -408,7 +408,7 @@ MIT — see [LICENSE](LICENSE).
 
 ## Links
 
-- **GitHub**: https://github.com/Cubiczan/orbit-recon
+- **GitHub**: https://github.com/icohangar-ops/orbit-recon
 - **Codeberg**: https://codeberg.org/cubiczan/orbit-recon
 - **Hackathon**: https://gitlab-transcend.devpost.com
 - **Orbit Docs**: https://docs.gitlab.com/orbit
