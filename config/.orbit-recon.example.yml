@@ -1,0 +1,56 @@
+# Architecture boundary rules for Orbit Recon
+# Place this file in your repository root as `.orbit-recon.yml`
+
+boundaries:
+  - name: "Domain Layer"
+    pattern: "src/domain/**"
+    allowed_imports:
+      - "src/domain/**"
+      - "src/types/**"
+      - "src/models/**"
+
+  - name: "Application Layer"
+    pattern: "src/application/**"
+    allowed_imports:
+      - "src/domain/**"
+      - "src/application/**"
+      - "src/types/**"
+      - "src/models/**"
+
+  - name: "Infrastructure Layer"
+    pattern: "src/infrastructure/**"
+    allowed_imports:
+      - "src/domain/**"
+      - "src/infrastructure/**"
+      - "src/types/**"
+      - "src/models/**"
+      - "src/lib/**"
+
+  - name: "Presentation Layer"
+    pattern: "src/presentation/**"
+    allowed_imports:
+      - "src/application/**"
+      - "src/domain/**"
+      - "src/types/**"
+      - "src/models/**"
+
+thresholds:
+  dead_code_warning: 20
+  dead_code_critical: 50
+  coupling_warning_fan_out: 8
+  coupling_critical_fan_out: 15
+
+ignore:
+  dead_code:
+    - "test/**"
+    - "tests/**"
+    - "**/*.test.*"
+    - "**/*.spec.*"
+    - "**/index.ts"
+    - "**/index.js"
+    - "**/mod.rs"
+    - "**/__init__.py"
+  drift:
+    - "src/generated/**"
+    - "src/proto/**"
+    - "**/*.generated.*"

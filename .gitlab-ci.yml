@@ -1,0 +1,46 @@
+stages:
+  - build
+  - test
+  - recon
+
+variables:
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .cargo/
+    - target/
+
+build:
+  stage: build
+  image: rust:1.80-alpine
+  before_script:
+    - apk add --no-cache duckdb-dev openssl-dev pkgconf
+  script:
+    - cargo build --release
+  artifacts:
+    paths:
+      - target/release/orbit-recon
+
+test:
+  stage: test
+  image: rust:1.80-alpine
+  before_script:
+    - apk add --no-cache duckdb-dev openssl-dev pkgconf
+  script:
+    - cargo test --verbose
+
+recon-self-scan:
+  stage: recon
+  image: rust:1.80-alpine
+  needs: [build]
+  before_script:
+    - apk add --no-cache git
+  script:
+    - ./target/release/orbit-recon --repo . --format json --output orbit-self-report.json || true
+    - echo "Orbit Recon self-scan complete"
+  artifacts:
+    paths:
+      - orbit-self-report.json
+    when: always

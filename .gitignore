@@ -1,0 +1,8 @@
+/target
+**/*.rs.bk
+.cargo/
+*.duckdb
+*.duckdb.wal
+.orbit/
+orbit-report.json
+orbit-recon-report.md
