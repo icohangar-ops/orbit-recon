@@ -123,7 +123,7 @@ Orbit Recon is open source, written in Rust, and uses zero external services.
 It's a tool that turns the Orbit Knowledge Graph from a code navigation aid
 into an automated code quality auditor.
 
-The project is at github.com/Cubiczan/orbit-recon. Try it on your codebase.
+The project is at github.com/icohangar-ops/orbit-recon Try it on your codebase.
 Run `orbit index`, then `orbit-recon`, and see what your graph reveals.
 
 **[End card: Orbit Recon logo, GitLab Transcend Hackathon logo, links]**
