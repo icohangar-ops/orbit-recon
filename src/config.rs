@@ -134,3 +134,98 @@ impl Config {
 }
 
 use anyhow::Context;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn boundary(name: &str, pattern: &str, allowed: &[&str]) -> BoundaryRule {
+        BoundaryRule {
+            name: name.to_string(),
+            pattern: pattern.to_string(),
+            allowed_imports: allowed.iter().map(|s| s.to_string()).collect(),
+        }
+    }
+
+    #[test]
+    fn matching_boundary_finds_layer_by_glob() {
+        let cfg = Config {
+            boundaries: vec![
+                boundary("Domain", "src/domain/**", &["src/domain/**"]),
+                boundary("App", "src/application/**", &["src/domain/**"]),
+            ],
+            ..Default::default()
+        };
+
+        let b = cfg.matching_boundary("src/domain/user.rs").unwrap();
+        assert_eq!(b.name, "Domain");
+
+        let b = cfg.matching_boundary("src/application/service.rs").unwrap();
+        assert_eq!(b.name, "App");
+
+        assert!(cfg.matching_boundary("src/presentation/view.rs").is_none());
+    }
+
+    #[test]
+    fn import_allowed_respects_glob_scope() {
+        let cfg = Config {
+            boundaries: vec![boundary(
+                "Domain",
+                "src/domain/**",
+                &["src/domain/**", "src/types/**"],
+            )],
+            ..Default::default()
+        };
+
+        // Allowed: domain importing domain and types.
+        assert_eq!(
+            cfg.is_import_allowed("src/domain/user.rs", "src/domain/role.rs"),
+            Some(true)
+        );
+        assert_eq!(
+            cfg.is_import_allowed("src/domain/user.rs", "src/types/id.rs"),
+            Some(true)
+        );
+
+        // Disallowed: domain importing presentation.
+        assert_eq!(
+            cfg.is_import_allowed("src/domain/user.rs", "src/presentation/view.rs"),
+            Some(false)
+        );
+
+        // Source file outside any boundary: None.
+        assert_eq!(
+            cfg.is_import_allowed("src/other/x.rs", "src/domain/user.rs"),
+            None
+        );
+    }
+
+    #[test]
+    fn should_ignore_matches_dead_code_patterns() {
+        let cfg = Config {
+            ignore: IgnoreConfig {
+                dead_code: vec!["src/generated/**".to_string()],
+                drift: vec![],
+            },
+            ..Default::default()
+        };
+
+        assert!(cfg.should_ignore("src/generated/proto.rs", "dead_code"));
+        assert!(!cfg.should_ignore("src/domain/user.rs", "dead_code"));
+        // Unknown category never ignores.
+        assert!(!cfg.should_ignore("src/generated/proto.rs", "unknown"));
+    }
+
+    #[test]
+    fn double_star_matches_nested_dirs() {
+        let cfg = Config {
+            boundaries: vec![boundary("Domain", "src/domain/**", &[])],
+            ..Default::default()
+        };
+        // `**` matches across path separators (nested dirs).
+        assert!(cfg.matching_boundary("src/domain/user.rs").is_some());
+        assert!(cfg.matching_boundary("src/domain/sub/user.rs").is_some());
+        // A sibling top-level dir does not match.
+        assert!(cfg.matching_boundary("src/application/user.rs").is_none());
+    }
+}

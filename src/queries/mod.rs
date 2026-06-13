@@ -24,8 +24,19 @@ pub fn graph_stats(conn: &Connection) -> Result<crate::report::GraphStats> {
     })
 }
 
+/// Validate that an identifier (table or column name) is safe to interpolate
+/// into a SQL string. DuckDB does not support parameterizing identifiers, so we
+/// allowlist-validate against `[A-Za-z0-9_]+` to prevent SQL injection from an
+/// adversarially-named table in a maliciously crafted orbit.duckdb file.
+fn is_safe_identifier(name: &str) -> bool {
+    !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+}
+
 /// Try to count rows in a table, returning None if the table doesn't exist
 fn try_count_table(conn: &Connection, table: &str) -> Option<i64> {
+    if !is_safe_identifier(table) {
+        return None;
+    }
     let sql = format!("SELECT COUNT(*) FROM {}", table);
     conn.prepare(&sql)
         .ok()?
@@ -66,18 +77,49 @@ pub struct SchemaInfo {
 }
 
 fn get_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
-    let sql = format!(
-        "SELECT column_name FROM information_schema.columns WHERE table_name = '{}'",
-        table
-    );
-    let mut stmt = conn.prepare(&sql)?;
+    // `table` is a value compared against information_schema.columns.table_name,
+    // so bind it as a parameter rather than interpolating it into the SQL string.
+    // This prevents SQL injection from an adversarially-named table.
+    let sql =
+        "SELECT column_name FROM information_schema.columns WHERE table_name = ?";
+    let mut stmt = conn.prepare(sql)?;
 
     let rows = stmt
-        .query_map([], |row| {
+        .query_map([table], |row| {
             let col: String = row.get(0)?;
             Ok(col)
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_safe_identifier;
+
+    #[test]
+    fn accepts_plain_identifiers() {
+        assert!(is_safe_identifier("definitions"));
+        assert!(is_safe_identifier("references"));
+        assert!(is_safe_identifier("Table_1"));
+        assert!(is_safe_identifier("_internal"));
+    }
+
+    #[test]
+    fn rejects_empty() {
+        assert!(!is_safe_identifier(""));
+    }
+
+    #[test]
+    fn rejects_sql_injection_payloads() {
+        // These are the kinds of adversarial table names that could appear in a
+        // maliciously crafted orbit.duckdb file.
+        assert!(!is_safe_identifier("definitions; DROP TABLE references"));
+        assert!(!is_safe_identifier("foo WHERE 1=1"));
+        assert!(!is_safe_identifier("t'--"));
+        assert!(!is_safe_identifier("a b"));
+        assert!(!is_safe_identifier("foo)"));
+        assert!(!is_safe_identifier("schema.table"));
+    }
 }
