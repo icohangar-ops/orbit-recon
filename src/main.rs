@@ -8,6 +8,7 @@ mod config;
 mod findings;
 mod queries;
 mod report;
+mod resilience;
 
 use anyhow::{Context, Result};
 use clap::Parser;

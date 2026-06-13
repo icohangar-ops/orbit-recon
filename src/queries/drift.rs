@@ -16,8 +16,11 @@ pub fn detect(conn: &Connection, cfg: &Config) -> Result<Vec<Finding>> {
         cfg.boundaries.clone()
     };
 
-    // Query all cross-file references
-    let sql = r#"
+    // Query all cross-file references. The `LIMIT` is a query size guard
+    // (see `resilience::MAX_ROWS`) so a pathologically large reference table
+    // in a crafted Orbit graph cannot exhaust memory.
+    let sql = format!(
+        r#"
         SELECT
             r.source_file,
             r.source_name,
@@ -26,18 +29,27 @@ pub fn detect(conn: &Connection, cfg: &Config) -> Result<Vec<Finding>> {
         FROM references r
         WHERE r.source_file != r.target_file
         ORDER BY r.source_file
-    "#;
+        LIMIT {}
+    "#,
+        crate::resilience::MAX_ROWS
+    );
 
-    let mut stmt = conn.prepare(sql)?;
-    let rows = stmt
-        .query_map([], |row| {
-            let src_file: String = row.get(0)?;
-            let src_name: String = row.get(1)?;
-            let tgt_file: String = row.get(2)?;
-            let tgt_name: String = row.get(3)?;
-            Ok((src_file, src_name, tgt_file, tgt_name))
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
+    // Guard the (potentially full-table) scan with a wall-clock timeout so a
+    // huge or stalled read fails fast instead of hanging the CLI.
+    let interrupt = conn.interrupt_handle();
+    let rows = crate::resilience::with_read_timeout(interrupt, || {
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt
+            .query_map([], |row| {
+                let src_file: String = row.get(0)?;
+                let src_name: String = row.get(1)?;
+                let tgt_file: String = row.get(2)?;
+                let tgt_name: String = row.get(3)?;
+                Ok((src_file, src_name, tgt_file, tgt_name))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    })?;
 
     for (src_file, src_name, tgt_file, tgt_name) in rows {
         // Check ignore patterns
