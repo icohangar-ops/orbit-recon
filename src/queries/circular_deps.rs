@@ -16,22 +16,9 @@ pub fn detect(conn: &Connection, _cfg: &Config) -> Result<Vec<Finding>> {
     //
     // The Orbit graph stores references as (source_definition) -> (target_definition).
     // We aggregate these into module-level edges.
-
-    let sql = r#"
-        SELECT
-            module_from(source.file) AS from_module,
-            module_from(target.file) AS to_module,
-            COUNT(*) AS ref_count
-        FROM references r
-        JOIN definitions source ON r.source_name = source.name AND r.source_file = source.file
-        JOIN definitions target ON r.target_name = target.name AND r.target_file = target.file
-        WHERE module_from(source.file) != module_from(target.file)
-        GROUP BY from_module, to_module
-    "#;
-
-    // Since Orbit's DuckDB schema may not have a module_from() function,
-    // we do the module extraction in Rust by querying raw references and
-    // aggregating ourselves.
+    //
+    // Orbit's DuckDB schema has no SQL-side `module_from()` function, so we
+    // query raw references and do the module extraction in Rust below.
 
     let raw_sql = r#"
         SELECT
