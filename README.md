@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/icohangar-ops/orbit-recon"><img src="https://img.shields.io/badge/GitHub-Cubiczan%2Forbit--recon-181717?logo=github" alt="GitHub"></a>
+  <a href="https://github.com/icohangar-ops/orbit-recon"><img src="https://img.shields.io/badge/GitHub-icohangar--ops%2Forbit--recon-181717?logo=github" alt="GitHub"></a>
   <a href="https://codeberg.org/cubiczan/orbit-recon"><img src="https://img.shields.io/badge/Codeberg-cubiczan%2Forbit--recon-2185d0?logo=codeberg" alt="Codeberg"></a>
   <img src="https://img.shields.io/badge/Rust-1.80%2B-orange?logo=rust" alt="Rust">
   <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
@@ -187,7 +187,7 @@ Finds definitions (functions, methods, classes, structs, enums, traits) that hav
 Builds a module-level dependency graph from the raw cross-file references in the Orbit graph, then runs cycle detection:
 
 - **Pairwise cycles** (A↔B): Detects bidirectional module dependencies by checking if both A→B and B→A edges exist
-- **Multi-module cycles** (A→B→C→A): Uses iterative DFS to find cycles involving 3+ modules
+- **Multi-module cycles** (A→B→C→A): Uses recursive DFS to find cycles involving 3+ modules
 - **Scoring**: Each cycle is scored by the total number of cross-references, with high-volume cycles flagged as critical
 
 **Example output:**
