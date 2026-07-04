@@ -26,7 +26,7 @@ pub fn detect(conn: &Connection, cfg: &Config) -> Result<Vec<Finding>> {
             r.source_name,
             r.target_file,
             r.target_name
-        FROM references r
+        FROM "references" r
         WHERE r.source_file != r.target_file
         ORDER BY r.source_file
         LIMIT {}

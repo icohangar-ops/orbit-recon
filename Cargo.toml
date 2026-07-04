@@ -34,6 +34,16 @@ opt-level = 3
 lto = true
 strip = true
 
+[lib]
+name = "orbit_recon"
+path = "src/lib.rs"
+
 [[bin]]
 name = "orbit-recon"
 path = "src/main.rs"
+
+# Model Context Protocol server: exposes the four health checks as MCP tools
+# over stdio so agents (Claude Desktop, Cursor, GitLab Duo, etc.) can call them.
+[[bin]]
+name = "orbit-recon-mcp"
+path = "src/bin/mcp_server.rs"

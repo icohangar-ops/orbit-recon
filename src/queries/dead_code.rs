@@ -19,7 +19,7 @@ pub fn detect(conn: &Connection, cfg: &Config) -> Result<Vec<Finding>> {
         WHERE d.kind IN ('function', 'method', 'class', 'struct', 'enum', 'trait', 'interface')
         AND d.name NOT IN (
             SELECT DISTINCT r.target_name
-            FROM references r
+            FROM "references" r
         )
         ORDER BY d.file, d.line
     "#;

@@ -16,7 +16,7 @@ pub fn analyze(conn: &Connection, cfg: &Config) -> Result<Vec<Finding>> {
             r.source_file,
             r.target_file,
             COUNT(*) AS ref_count
-        FROM references r
+        FROM "references" r
         GROUP BY r.source_file, r.target_file
     "#;
 

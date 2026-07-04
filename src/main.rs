@@ -4,16 +4,10 @@
 //! to detect dead code, circular dependencies, module coupling, and
 //! architectural drift. Outputs structured JSON or Markdown reports.
 
-mod config;
-mod findings;
-mod queries;
-mod report;
-mod resilience;
-
 use anyhow::{Context, Result};
 use clap::Parser;
-use duckdb::Connection;
-use std::path::{Path, PathBuf};
+use orbit_recon::{config, findings, queries, report, ALL_CHECKS};
+use std::path::PathBuf;
 
 /// Orbit Recon: Codebase health analysis via GitLab Orbit Knowledge Graph
 #[derive(Parser, Debug)]
@@ -52,41 +46,6 @@ struct Cli {
     ci: bool,
 }
 
-fn find_duckdb_path(repo: &Path) -> Result<PathBuf> {
-    // Orbit Local stores the graph in .orbit/orbit.duckdb
-    let orbit_dir = repo.join(".orbit");
-    if !orbit_dir.exists() {
-        anyhow::bail!(
-            "No .orbit/ directory found in {}. Run `orbit index {}` first.",
-            repo.display(),
-            repo.display()
-        );
-    }
-
-    // Check for the standard location
-    let db_path = orbit_dir.join("orbit.duckdb");
-    if db_path.exists() {
-        return Ok(db_path);
-    }
-
-    // Try finding any .duckdb file in the orbit directory
-    if let Some(entry) = std::fs::read_dir(&orbit_dir)?
-        .filter_map(|e| e.ok())
-        .find(|e| {
-            e.path()
-                .extension()
-                .is_some_and(|ext| ext == "duckdb")
-        })
-    {
-        return Ok(entry.path());
-    }
-
-    anyhow::bail!(
-        "No DuckDB file found in {}. The Orbit graph may not be indexed.",
-        orbit_dir.display()
-    )
-}
-
 fn main() -> Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("warn"));
 
@@ -110,57 +69,23 @@ fn main() -> Result<()> {
             .map(|s| s.trim().to_string())
             .collect::<Vec<_>>()
     } else {
-        vec![
-            "dead_code".to_string(),
-            "circular_dependencies".to_string(),
-            "coupling".to_string(),
-            "architectural_drift".to_string(),
-        ]
+        ALL_CHECKS.iter().map(|s| s.to_string()).collect::<Vec<_>>()
     };
 
     // Find and open the DuckDB database
     let db_path = match &cli.db {
         Some(p) => p.clone(),
-        None => find_duckdb_path(&cli.repo)?,
+        None => orbit_recon::find_duckdb_path(&cli.repo)?,
     };
 
     log::info!("Opening Orbit graph: {}", db_path.display());
-    let conn = Connection::open_with_flags(
-        &db_path,
-        duckdb::Config::default().access_mode(duckdb::AccessMode::ReadOnly)?,
-    )
-    .with_context(|| format!("Failed to open DuckDB: {}", db_path.display()))?;
+    let conn = orbit_recon::open_graph(&db_path)?;
 
-    let mut all_findings = Vec::new();
     let min_severity = findings::Severity::from_str(&cli.severity);
 
-    // Run each check
-    if checks.contains(&"dead_code".to_string()) {
-        log::info!("Running dead code detection...");
-        let results = queries::dead_code::detect(&conn, &cfg)?;
-        all_findings.extend(results);
-    }
-
-    if checks.contains(&"circular_dependencies".to_string()) {
-        log::info!("Running circular dependency detection...");
-        let results = queries::circular_deps::detect(&conn, &cfg)?;
-        all_findings.extend(results);
-    }
-
-    if checks.contains(&"coupling".to_string()) {
-        log::info!("Running module coupling analysis...");
-        let results = queries::coupling::analyze(&conn, &cfg)?;
-        all_findings.extend(results);
-    }
-
-    if checks.contains(&"architectural_drift".to_string()) {
-        log::info!("Running architectural drift detection...");
-        let results = queries::drift::detect(&conn, &cfg)?;
-        all_findings.extend(results);
-    }
-
-    // Filter by minimum severity
-    all_findings.retain(|f| f.severity >= min_severity);
+    // Run the requested checks through the shared driver (same code path the
+    // MCP server uses).
+    let all_findings = orbit_recon::run_checks(&conn, &cfg, &checks, min_severity)?;
 
     // Get graph stats
     let graph_stats = queries::graph_stats(&conn)?;

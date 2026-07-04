@@ -338,6 +338,83 @@ The skill is compatible with GitLab Duo Agent Platform, Claude Code, Codex, and 
 
 ---
 
+## MCP Server
+
+Beyond the CLI and the Duo skill, Orbit Recon exposes its four health checks as
+[Model Context Protocol](https://modelcontextprotocol.io) tools through a
+dedicated binary, `orbit-recon-mcp`. Any MCP client — Claude Desktop, Cursor,
+GitLab Duo, or a custom agent — can call the checks directly as tools.
+
+It is a **thin wrapper**: the server binary reuses the exact same `orbit_recon`
+library the CLI does, so there is no duplicated analysis logic. The transport is
+newline-delimited **JSON-RPC 2.0 over stdio**, implemented with only
+`serde_json` (already a dependency) — no async runtime or extra crates were added.
+
+### Build & run
+
+```bash
+# Build both binaries (orbit-recon and orbit-recon-mcp)
+cargo build --release
+
+# Run the MCP server (serves on stdio; a client spawns it)
+./target/release/orbit-recon-mcp
+
+# Or during development
+cargo run --bin orbit-recon-mcp
+```
+
+### Tools
+
+| Tool | Purpose |
+|---|---|
+| `analyze_dead_code` | Definitions with zero incoming references (dead code). |
+| `detect_circular_dependencies` | A↔B and multi-module (A→B→C→A) dependency cycles. |
+| `analyze_coupling` | Per-module fan-out; flags modules over the configured thresholds. |
+| `detect_architectural_drift` | Imports that cross configured layer boundaries. |
+| `health_scan` | All four checks + graph stats as one structured report (`json` or `markdown`). |
+
+Common inputs (all optional): `repo` (path to a repo with `.orbit/`, default `.`),
+`db` (explicit DuckDB path), `severity` (`info` \| `warning` \| `critical`).
+`health_scan` also accepts `format` (`json` \| `markdown`).
+
+### Client configuration
+
+```json
+{
+  "mcpServers": {
+    "orbit-recon": {
+      "command": "orbit-recon-mcp",
+      "args": []
+    }
+  }
+}
+```
+
+### Test
+
+```bash
+cargo test           # includes tools/list + a no-network tools/call over a temp DuckDB graph
+```
+
+### Publishing
+
+Orbit Recon follows the same publishing path as the author's other MCP servers
+(`codehealth-mcp`, `codesentinel`) under the `io.github.Cubiczan` namespace. The
+[`server.json`](server.json) manifest declares the server for the
+[MCP Registry](https://registry.modelcontextprotocol.io); publish it with the
+`mcp-publisher` CLI (not a PR):
+
+```bash
+# Package/publish the binary crate so `orbit-recon-mcp` is installable
+cargo publish
+
+# Then register the MCP server manifest
+mcp-publisher login github
+mcp-publisher publish   # reads ./server.json (io.github.Cubiczan/orbit-recon)
+```
+
+---
+
 ## Project Structure
 
 ```
@@ -349,7 +426,10 @@ orbit-recon/
 ├── config/
 │   └── .orbit-recon.example.yml   # Example configuration
 ├── src/
+│   ├── lib.rs                      # Shared core library (checks driver, graph open, scan_repo)
 │   ├── main.rs                     # CLI entry point, argument parsing, orchestration
+│   ├── bin/
+│   │   └── mcp_server.rs           # MCP server binary (stdio JSON-RPC, wraps the library)
 │   ├── config.rs                   # YAML config loader, boundary matching, ignore patterns
 │   ├── findings.rs                 # Finding, Severity, Category, Location types
 │   ├── report.rs                   # Markdown/JSON/YAML report generation
@@ -360,6 +440,7 @@ orbit-recon/
 │       ├── coupling.rs             # Fan-out metric per module
 │       └── drift.rs                # Boundary rule violation detection
 ├── AGENTS.md                       # Agent platform documentation
+├── server.json                     # MCP Registry manifest (io.github.Cubiczan/orbit-recon)
 ├── Cargo.toml                      # Rust dependencies
 ├── devpost-submission.md           # Devpost hackathon submission content
 ├── video-script.md                 # 3-minute demo video script

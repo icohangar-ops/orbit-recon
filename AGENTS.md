@@ -77,6 +77,58 @@ Finds domain-layer definitions that reach outside their intended boundary (e.g.,
 
 - **orbit-recon**: The main skill for running full codebase health scans. See `.agents/skills/orbit-recon/SKILL.md` for full specification.
 
+## MCP Server
+
+Orbit Recon also ships an **MCP (Model Context Protocol) server** so any
+MCP-compatible agent (Claude Desktop, Cursor, GitLab Duo, etc.) can invoke its
+health checks directly as tools — no shell orchestration required.
+
+The server is a second binary target, `orbit-recon-mcp`, that speaks
+newline-delimited JSON-RPC 2.0 over stdio. It is a thin wrapper over the same
+`orbit_recon` library the CLI uses; there is no duplicated analysis logic. It
+adds no new dependencies (only `serde_json`, already present).
+
+Build and run:
+
+```bash
+cargo build --release
+./target/release/orbit-recon-mcp        # serves on stdio
+# or during development:
+cargo run --bin orbit-recon-mcp
+```
+
+Each tool reads the Orbit DuckDB graph read-only (auto-detected from the target
+repo's `.orbit/` directory, or via an explicit `db` path) and returns findings
+as JSON text content.
+
+### Tools
+
+| Tool | Purpose |
+|---|---|
+| `analyze_dead_code` | Definitions (functions, classes, methods, structs, enums, traits, interfaces) with no incoming reference edges — nothing calls or uses them. |
+| `detect_circular_dependencies` | Bidirectional (A↔B) and longer (A→B→C→A) module dependency cycles, with cross-reference counts. |
+| `analyze_coupling` | Per-module fan-out metric; flags modules exceeding the configured warning/critical thresholds. |
+| `detect_architectural_drift` | Imports that cross configured (or default layered) module boundaries. |
+| `health_scan` | Runs all four checks plus graph statistics and returns the full structured report (`json` or `markdown`). |
+
+Common tool inputs (all optional): `repo` (path to the repo containing
+`.orbit/`, default `.`), `db` (explicit DuckDB path override), `severity`
+(`info` \| `warning` \| `critical` minimum). `health_scan` additionally accepts
+`format` (`json` \| `markdown`).
+
+### Example MCP client config (Claude Desktop / Cursor)
+
+```json
+{
+  "mcpServers": {
+    "orbit-recon": {
+      "command": "orbit-recon-mcp",
+      "args": []
+    }
+  }
+}
+```
+
 ## Setup
 
 ### Prerequisites

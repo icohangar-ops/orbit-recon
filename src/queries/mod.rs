@@ -37,7 +37,11 @@ fn try_count_table(conn: &Connection, table: &str) -> Option<i64> {
     if !is_safe_identifier(table) {
         return None;
     }
-    let sql = format!("SELECT COUNT(*) FROM {}", table);
+    // Quote the identifier so tables whose names collide with SQL reserved
+    // keywords (e.g. `references`) parse correctly. `is_safe_identifier` has
+    // already constrained `table` to `[A-Za-z0-9_]+`, so embedding it inside
+    // double quotes cannot break out of the quoted identifier.
+    let sql = format!(r#"SELECT COUNT(*) FROM "{}""#, table);
     conn.prepare(&sql)
         .ok()?
         .query_row([], |row| row.get(0))
