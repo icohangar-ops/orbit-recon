@@ -221,11 +221,7 @@ fn format_finding(f: &Finding) -> String {
 
     format!(
         "- {} [`{}`]({}) — {}\n  - _Suggestion_: {}\n",
-        severity_label,
-        f.location.name,
-        location,
-        f.description,
-        f.remediation,
+        severity_label, f.location.name, location, f.description, f.remediation,
     )
 }
 

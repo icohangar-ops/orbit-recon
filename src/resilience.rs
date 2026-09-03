@@ -64,24 +64,25 @@ where
                 Ok(rt) => rt,
                 Err(_) => return,
             };
-            let _ = rt.block_on(with_timeout::<(), std::convert::Infallible, _>(
-                async {
-                    // Resolve early (cleanly) if the read finishes first.
-                    loop {
-                        if done.load(Ordering::Relaxed) {
-                            return Ok(());
+            let _ = rt
+                .block_on(with_timeout::<(), std::convert::Infallible, _>(
+                    async {
+                        // Resolve early (cleanly) if the read finishes first.
+                        loop {
+                            if done.load(Ordering::Relaxed) {
+                                return Ok(());
+                            }
+                            tokio::time::sleep(Duration::from_millis(5)).await;
                         }
-                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    },
+                    READ_TIMEOUT,
+                ))
+                .map_err(|e| {
+                    if matches!(e, ResilienceError::Timeout(_)) {
+                        fired.store(true, Ordering::SeqCst);
+                        interrupt.interrupt();
                     }
-                },
-                READ_TIMEOUT,
-            ))
-            .map_err(|e| {
-                if matches!(e, ResilienceError::Timeout(_)) {
-                    fired.store(true, Ordering::SeqCst);
-                    interrupt.interrupt();
-                }
-            });
+                });
         })
     };
 

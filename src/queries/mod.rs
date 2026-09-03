@@ -1,7 +1,5 @@
 //! Query module aggregator and graph statistics
 
-use crate::config::Config;
-use crate::findings::{Finding, Severity};
 use anyhow::Result;
 use duckdb::Connection;
 
@@ -46,56 +44,6 @@ fn try_count_table(conn: &Connection, table: &str) -> Option<i64> {
         .ok()?
         .query_row([], |row| row.get(0))
         .ok()
-}
-
-/// Discover the actual DuckDB schema from the Orbit graph
-/// and adapt queries to match whatever table/column names Orbit uses.
-pub fn discover_schema(conn: &Connection) -> Result<SchemaInfo> {
-    let mut tables = Vec::new();
-
-    let sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'";
-    let mut stmt = conn.prepare(sql)?;
-
-    let rows = stmt
-        .query_map([], |row| {
-            let name: String = row.get(0)?;
-            Ok(name)
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-
-    for table in rows {
-        let columns = get_columns(conn, &table)?;
-        tables.push(TableName { name: table, columns });
-    }
-
-    Ok(SchemaInfo { tables })
-}
-
-struct TableName {
-    name: String,
-    columns: Vec<String>,
-}
-
-pub struct SchemaInfo {
-    pub tables: Vec<TableName>,
-}
-
-fn get_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
-    // `table` is a value compared against information_schema.columns.table_name,
-    // so bind it as a parameter rather than interpolating it into the SQL string.
-    // This prevents SQL injection from an adversarially-named table.
-    let sql =
-        "SELECT column_name FROM information_schema.columns WHERE table_name = ?";
-    let mut stmt = conn.prepare(sql)?;
-
-    let rows = stmt
-        .query_map([table], |row| {
-            let col: String = row.get(0)?;
-            Ok(col)
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(rows)
 }
 
 #[cfg(test)]

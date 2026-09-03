@@ -58,13 +58,11 @@ pub fn detect(conn: &Connection, cfg: &Config) -> Result<Vec<Finding>> {
         }
 
         // Find which boundary rule applies to the source file
-        let matching_rule = rules
-            .iter()
-            .find(|rule| {
-                glob::Pattern::new(&rule.pattern)
-                    .map(|g| g.matches(&src_file))
-                    .unwrap_or(false)
-            });
+        let matching_rule = rules.iter().find(|rule| {
+            glob::Pattern::new(&rule.pattern)
+                .map(|g| g.matches(&src_file))
+                .unwrap_or(false)
+        });
 
         if let Some(rule) = matching_rule {
             // Check if the target file is allowed

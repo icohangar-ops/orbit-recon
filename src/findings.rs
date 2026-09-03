@@ -94,9 +94,7 @@ pub enum RelatedInfo {
         boundary_rule: String,
     },
     /// For dead code: the kind of definition
-    DeadCodeKind {
-        kind: String,
-    },
+    DeadCodeKind { kind: String },
 }
 
 impl Finding {

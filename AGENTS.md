@@ -84,14 +84,15 @@ MCP-compatible agent (Claude Desktop, Cursor, GitLab Duo, etc.) can invoke its
 health checks directly as tools — no shell orchestration required.
 
 The server is a second binary target, `orbit-recon-mcp`, that speaks
-newline-delimited JSON-RPC 2.0 over stdio. It is a thin wrapper over the same
-`orbit_recon` library the CLI uses; there is no duplicated analysis logic. It
-adds no new dependencies (only `serde_json`, already present).
+framed JSON-RPC 2.0 over stdio (`Content-Length` headers). It is a thin wrapper
+over the same `orbit_recon` library the CLI uses; there is no duplicated
+analysis logic. It adds no new dependencies (only `serde_json`, already
+present).
 
 Build and run:
 
 ```bash
-cargo build --release
+cargo build --release --bin orbit-recon-mcp
 ./target/release/orbit-recon-mcp        # serves on stdio
 # or during development:
 cargo run --bin orbit-recon-mcp

@@ -86,14 +86,11 @@ Orbit Recon is a showcase submission demonstrating how the Orbit Knowledge Graph
 ### Install
 
 ```bash
-# From crates.io (when published)
-cargo install orbit-recon
-
-# Or build from source
 git clone https://github.com/icohangar-ops/orbit-recon.git
 cd orbit-recon
 cargo build --release
 # Binary at target/release/orbit-recon
+# MCP binary at target/release/orbit-recon-mcp
 ```
 
 ### Run
@@ -111,6 +108,9 @@ orbit-recon --format json --output report.json
 
 # 4. CI mode — exits with code 1 on critical findings
 orbit-recon --format json --output report.json --ci
+
+# 5. Run the MCP server for agents
+cargo run --bin orbit-recon-mcp
 ```
 
 ### Install as a Duo Agent Skill

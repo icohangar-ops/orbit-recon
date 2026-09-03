@@ -9,6 +9,7 @@
 
 pub mod config;
 pub mod findings;
+pub mod mcp;
 pub mod queries;
 pub mod report;
 pub mod resilience;

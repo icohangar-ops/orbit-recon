@@ -2,7 +2,6 @@
 
 use anyhow::Result;
 use serde::Deserialize;
-use std::collections::HashMap;
 use std::path::Path;
 
 /// Top-level configuration

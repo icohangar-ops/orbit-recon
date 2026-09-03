@@ -197,9 +197,7 @@ fn extract_module(file: &str) -> String {
 /// recursive version maintains `path`/`path_set` as a proper DFS stack: every
 /// node pushed before recursing is popped afterwards, guaranteeing the recorded
 /// chain is exactly the simple path from `start` back to `start`.
-fn find_longer_cycles(
-    deps: &HashMap<String, HashMap<String, i64>>,
-) -> Vec<(Vec<String>, i64)> {
+fn find_longer_cycles(deps: &HashMap<String, HashMap<String, i64>>) -> Vec<(Vec<String>, i64)> {
     let mut cycles: Vec<(Vec<String>, i64)> = Vec::new();
 
     // Run a DFS rooted at each node, looking for simple cycles of length >= 3
@@ -381,7 +379,10 @@ mod tests {
         // a <-> b is a 2-cycle, handled elsewhere; must NOT appear here.
         let g = graph(&[("a", "b", 5), ("b", "a", 5)]);
         let cycles = find_longer_cycles(&g);
-        assert!(cycles.is_empty(), "2-cycles must not be reported as longer cycles");
+        assert!(
+            cycles.is_empty(),
+            "2-cycles must not be reported as longer cycles"
+        );
     }
 
     #[test]
