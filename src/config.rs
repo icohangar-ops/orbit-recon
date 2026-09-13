@@ -1,9 +1,11 @@
 //! Configuration loading for Orbit Recon
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::path::Path;
+
+use crate::path_safety;
 
 /// Top-level configuration
 #[derive(Debug, Deserialize, Default, Clone)]
@@ -81,6 +83,9 @@ pub struct IgnoreConfig {
 
 impl Config {
     pub fn from_file(path: &Path) -> Result<Self> {
+        // `path` is CLI `--config` or `<repo>/.orbit-recon.yml`. Reject `..`
+        // before the read so a traversal payload cannot escape the repo.
+        let path = path_safety::require_no_parent_dir(path)?;
         let content = std::fs::read_to_string(path)
             .with_context(|| format!("Failed to read config: {}", path.display()))?;
         let config: Config = serde_yaml::from_str(&content)
@@ -132,8 +137,6 @@ impl Config {
         Some(false)
     }
 }
-
-use anyhow::Context;
 
 #[cfg(test)]
 mod tests {
@@ -227,5 +230,32 @@ mod tests {
         assert!(cfg.matching_boundary("src/domain/sub/user.rs").is_some());
         // A sibling top-level dir does not match.
         assert!(cfg.matching_boundary("src/application/user.rs").is_none());
+    }
+
+    #[test]
+    fn from_file_rejects_parent_dir() {
+        let err = Config::from_file(std::path::Path::new("../.orbit-recon.yml")).unwrap_err();
+        assert!(
+            err.to_string().contains("path traversal rejected"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn from_file_reads_confined_yaml() {
+        let dir = std::env::temp_dir().join(format!(
+            "orbit-recon-cfg-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("ok.yml");
+        std::fs::write(&path, "thresholds:\n  dead_code_warning: 3\n").unwrap();
+        let cfg = Config::from_file(&path).unwrap();
+        assert_eq!(cfg.thresholds.dead_code_warning, 3);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

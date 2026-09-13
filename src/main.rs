@@ -6,7 +6,7 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use orbit_recon::{config, findings, queries, report, ALL_CHECKS};
+use orbit_recon::{config, findings, path_safety, queries, report, ALL_CHECKS};
 use std::path::PathBuf;
 
 /// Orbit Recon: Codebase health analysis via GitLab Orbit Knowledge Graph
@@ -51,11 +51,15 @@ fn main() -> Result<()> {
 
     let cli = Cli::parse();
 
+    // Confine CLI paths: reject `..` and resolve relative flags against cwd.
+    let repo = path_safety::confine_user_path(&cli.repo)?;
+
     // Load configuration
     let cfg = if let Some(config_path) = &cli.config {
-        config::Config::from_file(config_path)?
+        let config_path = path_safety::confine_user_path(config_path)?;
+        config::Config::from_file(&config_path)?
     } else {
-        let default_config = cli.repo.join(".orbit-recon.yml");
+        let default_config = path_safety::confine_to_base(&repo, ".orbit-recon.yml")?;
         if default_config.exists() {
             config::Config::from_file(&default_config)?
         } else {
@@ -74,8 +78,8 @@ fn main() -> Result<()> {
 
     // Find and open the DuckDB database
     let db_path = match &cli.db {
-        Some(p) => p.clone(),
-        None => orbit_recon::find_duckdb_path(&cli.repo)?,
+        Some(p) => path_safety::confine_user_path(p)?,
+        None => orbit_recon::find_duckdb_path(&repo)?,
     };
 
     log::info!("Opening Orbit graph: {}", db_path.display());
@@ -94,10 +98,9 @@ fn main() -> Result<()> {
     let report = report::Report {
         version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
-        repository: cli
-            .repo
+        repository: repo
             .canonicalize()
-            .unwrap_or(cli.repo.clone())
+            .unwrap_or_else(|_| repo.clone())
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "unknown".to_string()),
@@ -115,7 +118,8 @@ fn main() -> Result<()> {
 
     match &cli.output {
         Some(path) => {
-            std::fs::write(path, &output_str)
+            let path = path_safety::confine_user_path(path)?;
+            std::fs::write(&path, &output_str)
                 .with_context(|| format!("Failed to write report to {}", path.display()))?;
             log::info!("Report written to {}", path.display());
         }

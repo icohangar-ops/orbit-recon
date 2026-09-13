@@ -36,6 +36,7 @@ use std::path::{Path, PathBuf};
 
 use orbit_recon::config::Config;
 use orbit_recon::findings::Severity;
+use orbit_recon::path_safety;
 
 const PROTOCOL_VERSION: &str = "2024-11-05";
 const SERVER_NAME: &str = "orbit-recon";
@@ -231,12 +232,23 @@ pub enum ToolError {
 /// This is the testable core: it performs no I/O of its own beyond the DuckDB
 /// reads the library functions do, so unit tests can drive it directly.
 pub fn call_tool(name: &str, args: &Value) -> Result<String, ToolError> {
-    let repo = args
-        .get("repo")
-        .and_then(|v| v.as_str())
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from("."));
-    let db_override = args.get("db").and_then(|v| v.as_str()).map(PathBuf::from);
+    // MCP `repo` / `db` are untrusted JSON. Reject `..` and confine relative
+    // values to cwd; `db` is further confined to the resolved repo.
+    let repo = {
+        let raw = args
+            .get("repo")
+            .and_then(|v| v.as_str())
+            .unwrap_or(".");
+        path_safety::confine_user_path(Path::new(raw))
+            .map_err(|e| ToolError::BadParams(e.to_string()))?
+    };
+    let db_override = match args.get("db").and_then(|v| v.as_str()) {
+        Some(raw) => Some(
+            path_safety::confine_to_base(&repo, Path::new(raw))
+                .map_err(|e| ToolError::BadParams(e.to_string()))?,
+        ),
+        None => None,
+    };
     let min_severity = args
         .get("severity")
         .and_then(|v| v.as_str())
@@ -311,17 +323,20 @@ pub fn call_tool(name: &str, args: &Value) -> Result<String, ToolError> {
 
 fn resolve_db(repo: &Path, db_override: Option<&Path>) -> anyhow::Result<PathBuf> {
     match db_override {
-        Some(p) => Ok(p.to_path_buf()),
+        Some(p) => {
+            path_safety::require_no_parent_dir(p)?;
+            Ok(p.to_path_buf())
+        }
         None => orbit_recon::find_duckdb_path(repo),
     }
 }
 
 fn load_config(repo: &Path) -> Config {
-    let default_config = repo.join(".orbit-recon.yml");
-    if default_config.exists() {
-        Config::from_file(&default_config).unwrap_or_default()
-    } else {
-        Config::default()
+    match path_safety::confine_to_base(repo, ".orbit-recon.yml") {
+        Ok(default_config) if default_config.exists() => {
+            Config::from_file(&default_config).unwrap_or_default()
+        }
+        _ => Config::default(),
     }
 }
 
@@ -498,5 +513,45 @@ mod tests {
         assert!(scan_json["graph_stats"]["nodes"].as_i64().unwrap() >= 2);
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn call_tool_rejects_repo_path_traversal() {
+        let err = call_tool(
+            "analyze_dead_code",
+            &json!({ "repo": "../../../etc" }),
+        );
+        match err {
+            Err(ToolError::BadParams(msg)) => {
+                assert!(
+                    msg.contains("path traversal rejected") || msg.contains("`..`"),
+                    "unexpected message: {msg}"
+                );
+            }
+            other => panic!("expected BadParams for repo traversal, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn call_tool_rejects_db_path_traversal() {
+        let cwd = std::env::current_dir().unwrap();
+        let err = call_tool(
+            "health_scan",
+            &json!({
+                "repo": cwd.to_str().unwrap(),
+                "db": "../../etc/passwd"
+            }),
+        );
+        match err {
+            Err(ToolError::BadParams(msg)) => {
+                assert!(
+                    msg.contains("path traversal rejected")
+                        || msg.contains("escapes allowed base")
+                        || msg.contains("`..`"),
+                    "unexpected message: {msg}"
+                );
+            }
+            other => panic!("expected BadParams for db traversal, got {other:?}"),
+        }
     }
 }
